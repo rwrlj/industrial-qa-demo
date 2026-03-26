@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工业设备故障诊断系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* 头部 */
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #94a3b8;
+            font-size: 1rem;
+        }
+
+        /* 主体布局 */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 20px;
+        }
+
+        /* 聊天区域 */
+        .chat-area {
+            background: #1e293b;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .messages {
+            height: 500px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #0f172a;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message.assistant {
+            justify-content: flex-start;
+        }
+
+        .message-content {
+            max-width: 75%;
+            padding: 12px 18px;
+            border-radius: 20px;
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant .message-content {
+            background: #1e293b;
+            color: #e2e8f0;
+            border-bottom-left-radius: 4px;
+            border: 1px solid #334155;
+        }
+
+        /* 输入区域 */
+        .input-area {
+            display: flex;
+            padding: 20px;
+            background: #1e293b;
+            border-top: 1px solid #334155;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 12px 18px;
+            border: 1px solid #334155;
+            border-radius: 30px;
+            background: #0f172a;
+            color: white;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .input-area input:focus {
+            border-color: #3b82f6;
+        }
+
+        .input-area input::placeholder {
+            color: #64748b;
+        }
+
+        .input-area button {
+            margin-left: 12px;
+            padding: 12px 28px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: transform 0.2s;
+        }
+
+        .input-area button:hover {
+            transform: scale(1.02);
+        }
+
+        .input-area button:active {
+            transform: scale(0.98);
+        }
+
+        /* 侧边栏 */
+        .sidebar {
+            background: #1e293b;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .sidebar h3 {
+            color: white;
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #334155;
+        }
+
+        .example-list {
+            list-style: none;
+        }
+
+        .example-list li {
+            padding: 10px 12px;
+            background: #0f172a;
+            margin-bottom: 8px;
+            border-radius: 10px;
+            cursor: pointer;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .example-list li:hover {
+            background: #334155;
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .reference-box {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #334155;
+        }
+
+        .reference-box h4 {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            margin-bottom: 10px;
+        }
+
+        .reference-item {
+            background: #0f172a;
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🏭 工业设备故障诊断系统</h1>
+        <p>基于通义千问大模型 | 智能故障诊断助手</p>
+    </div>
+
+    <div class="main-content">
+        <div class="chat-area">
+            <div class="messages" id="messages">
+                <div class="message assistant">
+                    <div class="message-content">
+                        👋 您好！我是工业设备故障诊断助手。<br><br>
+                        我可以帮您诊断以下设备故障：<br>
+                        • 数控机床 - 主轴无法启动<br>
+                        • PLC控制器 - 通信中断<br>
+                        • 伺服系统 - 电机抖动<br>
+                        • 传感器 - 信号异常<br>
+                        • 工业机器人 - 急停报警<br><br>
+                        请输入您遇到的故障现象，我会为您提供专业的诊断建议。
+                    </div>
+                </div>
+            </div>
+            <div class="input-area">
+                <input type="text" id="questionInput" placeholder="例如：数控机床主轴不转了，怎么办？"
+                       onkeypress="if(event.keyCode===13) sendQuestion()">
+                <button onclick="sendQuestion()">发送诊断</button>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <h3>📋 常见故障示例</h3>
+            <ul class="example-list">
+                <li onclick="fillExample('数控机床主轴无法启动，应该怎么排查？')">🔧 数控机床主轴无法启动</li>
+                <li onclick="fillExample('PLC通信中断，连接不上上位机')">🔌 PLC通信中断</li>
+                <li onclick="fillExample('伺服电机运行时有抖动，怎么解决？')">⚙️ 伺服电机抖动</li>
+                <li onclick="fillExample('传感器信号波动，数值不稳定')">📊 传感器信号异常</li>
+                <li onclick="fillExample('工业机器人急停报警，无法复位')">🤖 机器人急停报警</li>
+            </ul>
+            <div class="reference-box" id="referenceBox" style="display: none;">
+                <h4>📚 参考知识库</h4>
+                <div id="referenceList"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentReferences = [];
+
+    async function sendQuestion() {
+        const input = document.getElementById('questionInput');
+        const question = input.value.trim();
+        if (!question) return;
+
+        // 显示用户消息
+        addMessage(question, 'user');
+        input.value = '';
+
+        // 隐藏引用框
+        document.getElementById('referenceBox').style.display = 'none';
+
+        // 显示加载状态
+        const loadingMsg = addMessage('🔍 正在分析故障，请稍候...', 'assistant', true);
+
+        try {
+            const response = await fetch('/api/diagnose', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: question, topK: 3 })
+            });
+            const data = await response.json();
+
+            // 移除加载消息
+            loadingMsg.remove();
+
+            // 显示回答
+            let answerHtml = data.answer.replace(/\n/g, '<br>');
+            addMessage(answerHtml, 'assistant');
+
+            // 显示引用的知识库
+            if (data.references && data.references.length > 0) {
+                currentReferences = data.references;
+                const refList = document.getElementById('referenceList');
+                refList.innerHTML = currentReferences.map(ref =>
+                    `<div class="reference-item">📖 ${ref.deviceType} - ${ref.faultPhenomenon}</div>`
+                ).join('');
+                document.getElementById('referenceBox').style.display = 'block';
+            }
+        } catch (error) {
+            loadingMsg.remove();
+            addMessage('❌ 诊断服务暂时不可用：' + error.message, 'assistant');
+        }
+    }
+
+    function addMessage(content, role, isTemp = false) {
+        const messagesDiv = document.getElementById('messages');
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${role}`;
+        msgDiv.innerHTML = `<div class="message-content">${content}</div>`;
+        messagesDiv.appendChild(msgDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+        if (isTemp) {
+            msgDiv.classList.add('loading');
+        }
+        return msgDiv;
+    }
+
+    function fillExample(question) {
+        document.getElementById('questionInput').value = question;
+        sendQuestion();
+    }
+</script>
+</body>
+</html>
