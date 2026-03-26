@@ -2,113 +2,88 @@ package com.demo.industrial.controller;
 
 import com.demo.industrial.dto.AnswerResponse;
 import com.demo.industrial.dto.QuestionRequest;
-import com.demo.industrial.service.KnowledgeBaseService;
-import com.demo.industrial.service.KnowledgeBaseService.FaultKnowledge;
-import com.demo.industrial.service.TongYiService;
+import com.demo.industrial.service.AsyncDiagnosisService;
 import com.demo.industrial.util.LogUtils;
-import com.demo.industrial.util.PromptBuilder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Controller;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.context.request.async.DeferredResult;
 
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
-@Controller
+@RestController
 @RequiredArgsConstructor
 public class QaController {
 
-    private final KnowledgeBaseService knowledgeBaseService;
-    private final TongYiService tongYiService;
-    private final PromptBuilder promptBuilder;
+    private final AsyncDiagnosisService asyncDiagnosisService;
 
-    // 使用ThreadLocal存储当前会话ID（简化示例，实际可用Session）
-    private static final ThreadLocal<String> sessionHolder = new ThreadLocal<>();
-
-    @GetMapping("/")
-    public String index() {
-        // 新会话开始
-        String sessionId = UUID.randomUUID().toString();
-        sessionHolder.set(sessionId);
-        LogUtils.logSessionStart(sessionId);
-        return "index";
-    }
-
+    /**
+     * 同步诊断接口（保持兼容）
+     */
     @PostMapping("/api/diagnose")
-    @ResponseBody
     public AnswerResponse diagnose(@RequestBody QuestionRequest request) {
-        String sessionId = sessionHolder.get();
-        if (sessionId == null) {
-            sessionId = UUID.randomUUID().toString();
-            sessionHolder.set(sessionId);
-            LogUtils.logSessionStart(sessionId);
-        }
-
-        String question = request.getQuestion();
-        int topK = request.getTopK();
-
-        // 记录用户问题
-        LogUtils.logQuestion(question, sessionId);
-
-        long startTime = System.currentTimeMillis();
+        String sessionId = UUID.randomUUID().toString();
+        LogUtils.logSessionStart(sessionId);
 
         try {
-            // 1. 检索相关知识（记录耗时）
-            long searchStart = System.currentTimeMillis();
-            List<FaultKnowledge> relevantFaults = knowledgeBaseService.search(question, topK);
-            long searchCost = System.currentTimeMillis() - searchStart;
-
-            // 记录检索结果
-            LogUtils.logSearchResult(question, relevantFaults, searchCost);
-
-            // 2. 构建上下文
-            String context = knowledgeBaseService.buildContext(relevantFaults);
-
-            // 3. 构建 Prompt
-            String prompt = promptBuilder.buildDiagnosisPrompt(context, question);
-
-            // 4. 调用通义千问（记录耗时）
-            long aiStart = System.currentTimeMillis();
-            String diagnosis = tongYiService.chat(prompt);
-            long aiCost = System.currentTimeMillis() - aiStart;
-
-            // 记录AI调用成功
-            LogUtils.logAICall(prompt, diagnosis, aiCost, true);
-
-            // 5. 构建响应
-            long totalCost = System.currentTimeMillis() - startTime;
-            LogUtils.logDiagnosisComplete(question, diagnosis, totalCost);
-
-            log.info("诊断完成: sessionId={}, totalCost={}ms, aiCost={}ms, searchCost={}ms",
-                    sessionId, totalCost, aiCost, searchCost);
-
-            return AnswerResponse.builder()
-                    .question(question)
-                    .answer(diagnosis)
-                    .references(relevantFaults.stream()
-                            .map(f -> AnswerResponse.Reference.builder()
-                                    .id(f.getId())
-                                    .deviceType(f.getDeviceType())
-                                    .faultPhenomenon(f.getFaultPhenomenon())
-                                    .build())
-                            .collect(Collectors.toList()))
-                    .success(true)
-                    .build();
-
+            // 直接调用同步方法（如果有的话）
+            // 这里为了演示，调用异步方法并阻塞等待
+            CompletableFuture<AnswerResponse> future = asyncDiagnosisService.diagnoseAsync(
+                    request.getQuestion(), request.getTopK(), sessionId
+            );
+            return future.get(); // 阻塞等待
         } catch (Exception e) {
-            long totalCost = System.currentTimeMillis() - startTime;
-            log.error("诊断失败: sessionId={}, question={}, costMs={}", sessionId, question, totalCost, e);
-            LogUtils.logApiError("diagnose", e, "question=" + question);
-
+            log.error("诊断失败", e);
             return AnswerResponse.builder()
-                    .question(question)
-                    .answer("诊断服务暂时不可用：" + e.getMessage())
+                    .question(request.getQuestion())
+                    .answer("诊断失败：" + e.getMessage())
                     .success(false)
-                    .errorMessage(e.getMessage())
                     .build();
         }
+    }
+
+    /**
+     * 异步诊断接口（真正非阻塞）
+     * 使用 DeferredResult 实现 Servlet 3.0 异步
+     */
+    @PostMapping("/api/diagnose/async")
+    public DeferredResult<ResponseEntity<AnswerResponse>> diagnoseAsync(@RequestBody QuestionRequest request) {
+        // 设置超时时间 60 秒
+        DeferredResult<ResponseEntity<AnswerResponse>> deferredResult = new DeferredResult<>(60000L);
+
+        String sessionId = UUID.randomUUID().toString();
+        LogUtils.logSessionStart(sessionId);
+
+        // 异步执行诊断
+        CompletableFuture<AnswerResponse> future = asyncDiagnosisService.diagnoseAsync(
+                request.getQuestion(), request.getTopK(), sessionId
+        );
+
+        // 异步回调：完成时设置结果
+        future.whenComplete((response, throwable) -> {
+            if (throwable != null) {
+                log.error("异步诊断异常", throwable);
+                deferredResult.setErrorResult(throwable);
+            } else {
+                deferredResult.setResult(ResponseEntity.ok(response));
+            }
+        });
+
+        // 超时处理
+        deferredResult.onTimeout(() -> {
+            log.warn("异步诊断超时: sessionId={}", sessionId);
+            deferredResult.setErrorResult(ResponseEntity.status(504).body(
+                    AnswerResponse.builder()
+                            .question(request.getQuestion())
+                            .answer("诊断超时，请稍后重试")
+                            .success(false)
+                            .build()
+            ));
+        });
+
+        return deferredResult;
     }
 }
