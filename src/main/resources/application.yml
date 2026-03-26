@@ -10,7 +10,20 @@ spring:
     suffix: .html
 
 tongyi:
+  # 不要提交apiKey
   api-key:
   model: qwen-turbo
   max-tokens: 1024
   temperature: 0.7
+
+# 日志配置
+logging:
+  level:
+    com.demo.industrial: INFO
+    com.demo.industrial.service: DEBUG  # 开发环境可开启DEBUG
+    org.springframework.web: WARN
+  file:
+    name: logs/industrial-qa.log
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

@@ -23,9 +23,11 @@ public class KnowledgeBaseService {
     private List<FaultKnowledge> faultDatabase = new ArrayList<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    // 在 init 方法中添加日志
     @PostConstruct
     public void init() {
         loadFaultDatabase();
+        log.info("知识库初始化完成，共加载 {} 条故障记录", faultDatabase.size());
     }
 
     /**
@@ -123,24 +125,33 @@ public class KnowledgeBaseService {
      */
     public List<FaultKnowledge> search(String question, int topK) {
         if (question == null || question.trim().isEmpty()) {
+            log.debug("搜索问题为空，返回空结果");
             return Collections.emptyList();
         }
 
+        long start = System.currentTimeMillis();
         List<ScoredFault> scored = new ArrayList<>();
 
         for (FaultKnowledge fault : faultDatabase) {
             int score = calculateRelevanceScore(question, fault);
             if (score > 0) {
                 scored.add(new ScoredFault(fault, score));
+                log.debug("匹配故障: device={}, score={}", fault.getDeviceType(), score);
             }
         }
 
         scored.sort((a, b) -> Integer.compare(b.score, a.score));
-        return scored.stream()
+        List<FaultKnowledge> result = scored.stream()
                 .limit(topK)
                 .map(sf -> sf.fault)
                 .collect(Collectors.toList());
+
+        long cost = System.currentTimeMillis() - start;
+        log.debug("搜索完成: question={}, results={}, cost={}ms", question, result.size(), cost);
+
+        return result;
     }
+
 
     /**
      * 计算相关度分数
